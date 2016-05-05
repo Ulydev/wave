@@ -3,7 +3,7 @@ wave
 
 wave is a LÖVE sound manager with advanced audio parsing functionalities.
 
-![demo][demo]
+<img src="http://s32.postimg.org/8n00sidfn/out.gif" alt="demo" width="420"/>
 
 Setup
 ----------------
@@ -28,7 +28,7 @@ beep:play()
 Parsing audio
 ----------------
 
-wave allows you to parse audio files to get the "energy" of the song. This allows you to add visual effects that are synchronized with the music.
+wave parses audio files to get the "energy" of the song. This allows you to add visual effects that are synchronized with the music.
 
 First, load and parse the audio, then set its intensity
 ```lua
@@ -150,5 +150,3 @@ source:setTargetPitch(pitch)
 source:setTargetVolume(volume)
 //-> source:getTargetVolume()
 ```
-
-[demo]: http://s32.postimg.org/8n00sidfn/out.gif
