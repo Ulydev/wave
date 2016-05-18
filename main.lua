@@ -18,6 +18,7 @@ function love.load()
     
     :setIntensity(20)
     :setBPM(120)
+    :setOffset(100)
     
     :setPitch(0.1)
     :setVolume(0)

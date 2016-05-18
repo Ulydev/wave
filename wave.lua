@@ -83,6 +83,7 @@ function waveObject:play(pitched)
     self.instance = instance
     if self:isMusic() then --start listening to beat
       
+      self.duration = self.instance:getDuration()
       self.previousFrame = 0
       self.lastTime = 0
       self.time = 0
@@ -134,6 +135,11 @@ end
 function waveObject:setBPM(bpm)
   self.bpm = bpm
   self.bps = 60 / bpm
+  return self
+end
+
+function waveObject:setOffset(offset)
+  self.offset = offset
   return self
 end
 
@@ -225,7 +231,7 @@ function waveObject:updateBeat(dt)
     self.lastTime = _position
   end
   
-  self.beatTime = (self.bpm / 60) * self.time / 1000
+  self.beatTime = (self.bpm / 60) * ((self.time + (self.offset or 0)) % (self.duration*1000)) / 1000
   
   local _beat = math.floor(self.beatTime)
   _elapsedBeats = _elapsedBeats + _beat - self.beat
