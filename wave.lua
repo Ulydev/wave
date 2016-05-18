@@ -183,11 +183,11 @@ end
 for _, property in ipairs{'pitch', 'volume'} do
 	local name = 'Target' .. property:sub(1,1):upper() .. property:sub(2)
 	waveObject['get' .. name] = function(self)
-		return self[property]
+		return self['target' .. property]
 	end
 
 	waveObject['set' .. name] = function(self, val)
-		self[property] = val
+		self['target' .. property] = val
     return self
 	end
 end
