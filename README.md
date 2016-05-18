@@ -131,6 +131,8 @@ Set/get source properties
 ```lua
 source:setBPM(bpm)
 
+source:setOffset(offset) --set beat offset (milliseconds)
+
 source:setIntensity(intensity)
 
 source:setPitch(pitch)
