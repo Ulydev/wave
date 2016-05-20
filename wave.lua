@@ -84,7 +84,7 @@ function waveObject:play(pitched)
     if self:isMusic() then --start listening to beat
       
       self.duration = self.instance:getDuration()
-      self.previousFrame = 0
+      self.previousFrame = love.timer.getTime() * 1000
       self.lastTime = 0
       self.time = 0
       self.beat = 0
@@ -213,14 +213,14 @@ function waveObject:updateBeat(dt)
   local _instance = self.instances[self.instance]
   if not _instance then return self end
   
-  local _offset = dt - self.previousFrame
+  local _offset = love.timer.getTime() * 1000
   
   local _elapsedBeats = 0
   
-  self.time = self.time + _offset
+  self.time = self.time + _offset - self.previousFrame
   
-  self.previousFrame = dt
-  local _position = _instance:tell("seconds")*1000
+  self.previousFrame = _offset
+  local _position = _instance:tell("seconds") * 1000
   if _position < self.lastTime then --music looped
     self.time = _position
     self.lastTime = _position
@@ -231,7 +231,7 @@ function waveObject:updateBeat(dt)
     self.lastTime = _position
   end
   
-  self.beatTime = (self.bpm / 60) * ((self.time + (self.offset or 0)) % (self.duration*1000)) / 1000
+  self.beatTime = (self.bpm / 60) * ((self.time + (self.offset or 0)) % (self.duration * 1000)) / 1000
   
   local _beat = math.floor(self.beatTime)
   _elapsedBeats = _elapsedBeats + _beat - self.beat
