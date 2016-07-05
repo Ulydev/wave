@@ -94,6 +94,12 @@ function love.update(dt)
 end
 ```
 
+You can also fade music in and out. When faded out, the source will pause until it's played back.
+```lua
+source:fadeIn()
+source:fadeOut()
+```
+
 Chaining functions
 ----------------
 
@@ -151,4 +157,11 @@ source:setTargetPitch(pitch)
 
 source:setTargetVolume(volume)
 //-> source:getTargetVolume()
+```
+
+Fade in/out
+```lua
+source:fadeIn()
+source:fadeOut()
+source:fade(str) --"in" or "out"
 ```

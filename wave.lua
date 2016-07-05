@@ -10,7 +10,7 @@ setmetatable(wave, wave)
 
 --[[ Private ]]--
 
-local playInstance, stopInstance
+local playInstance, stopInstance, isPlaying
 
 local function removeStopped(sources)
 	local remove = {}
@@ -35,8 +35,8 @@ end
 function wave:newSource(path, type)
   local _object = {
 		_paused   = false,
-		path    = path,
-		type       = type,
+		path      = path,
+		type      = type,
 		instances = {},
 		looping   = false,
 		pitch     = 1,
@@ -58,6 +58,9 @@ function waveObject:play(pitched)
   
   removeStopped(self.instances)
 	if self._paused then self:stop() end
+  
+  self._paused = false
+  
 	local instance = love.audio.newSource(self.data or self.path, self.type)
 
 	-- overwrite instance:stop() and instance:play()
@@ -70,6 +73,9 @@ function waveObject:play(pitched)
 			stopInstance(this)
 			self.instances[this] = nil
 		end
+    
+    isPlaying = getmetatable(instance).isPlaying
+    getmetatable(instance).isPlaying = error
 	end
 
 	instance:setLooping(self.looping)
@@ -93,7 +99,7 @@ function waveObject:play(pitched)
     end
     return self
   else
-    return instance
+    return self
   end
   
 end
@@ -104,6 +110,7 @@ function waveObject:stop()
 	end
 	self._paused = false
 	self.instances = {}
+  return self
 end
 
 function waveObject:pause()
@@ -112,6 +119,7 @@ function waveObject:pause()
 		s:pause()
 	end
 	self._paused = true
+  return self
 end
 
 function waveObject:resume()
@@ -120,6 +128,14 @@ function waveObject:resume()
 		s:resume()
 	end
 	self._paused = false
+  return self
+end
+
+function waveObject:seek(position, unit)
+  for s in pairs(self.instances) do
+    s:seek(position, unit)
+  end
+  return self
 end
 
 --// Configure music
@@ -154,6 +170,25 @@ end
 
 function waveObject:getBeatTime()
   return self.beatTime-self.beat
+end
+
+--
+
+function waveObject:fadeIn(target)
+  if self:getTargetVolume() ~= 0 and not self:isPaused() then return self end
+  if self:isPlaying() and self:isPaused() then --playing but paused
+    self:resume()
+  elseif not self:isPlaying() then --not playing
+    self:play()
+  end
+  self:setTargetVolume(target or 1)
+  return self
+end
+
+function waveObject:fadeOut(speed)
+  self.isFadingOut = speed or true
+  self:setTargetVolume(0)
+  return self
 end
 
 --
@@ -251,10 +286,11 @@ function waveObject:updateEnergy(dt)
   if not _instance then return self end
   
   local _sample = _instance:tell( "samples" )
-  if _sample-1024 > 0 then
+  local size = 1024
+  if _sample-size > 0 then
     
     local _energy = 0
-    for i = _sample, _sample+1024 do
+    for i = _sample, _sample+size do
       _energy = _energy + (self.data:getSample(i)^2)/self.intensity
     end
     self.energy = lerp(self.energy, _energy, 10*dt)
@@ -264,8 +300,13 @@ function waveObject:updateEnergy(dt)
 end
 
 function waveObject:updateProperties(dt)
-  self:setPitch(lerp(self:getPitch(), self:getTargetPitch(), 2*dt))
-  self:setVolume(lerp(self:getVolume(), self:getTargetVolume(), 2*dt))
+  if self:getTargetPitch() then self:setPitch(lerp(self:getPitch(), self:getTargetPitch(), 2*dt)) end
+  if self:getTargetVolume() then self:setVolume(lerp(self:getVolume(), self:getTargetVolume(), ((self.isFadingOut and self.isFadingOut ~= true) and self.isFadingOut or 2)*dt)) end
+
+  if self.isFadingOut and self:getVolume() == self:getTargetVolume() then
+    self.isFadingOut = nil
+    self:pause()
+  end
 end
 
 --// Checks
@@ -273,9 +314,21 @@ end
 function waveObject:isMusic() return self.bpm and true or false end
 function waveObject:isParsed() return self.data and true or false end
 
+function waveObject:isPaused() return self._paused end
+
+function waveObject:isPlaying() 
+  local _playing = false
+  for s in pairs(self.instances) do
+		if s then _playing = true end --if there's at least one instance
+	end
+  return _playing
+end
+
 --[[ Aliases ]]--
 
 waveObject.isLooping = waveObject.getLooping
+
+function waveObject:fade(inout, target) if inout == "in" then return self:fadeIn(target) else return self:fadeOut() end end
 
 --[[ End ]]--
 
