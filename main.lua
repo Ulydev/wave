@@ -8,6 +8,7 @@ example = 1
 
 require "examples/1"
 require "examples/2"
+require "examples/3"
 
 function love.keypressed(key, scancode, isrepeat)
   

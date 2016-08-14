@@ -1,4 +1,4 @@
-examples[1] = function() --low-rez example
+examples[1] = function()
   
   local colors = {
     {255, 255, 255},

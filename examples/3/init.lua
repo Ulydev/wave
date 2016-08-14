@@ -1,4 +1,4 @@
-examples[2] = function()
+examples[3] = function()
   
   function love.load()
     
@@ -13,17 +13,12 @@ examples[2] = function()
       :setLooping(true)
       
       :play() --call this when done configuring
-      
-    sound = audio:newSource("sound.wav")
-    
-    fade = "in"
   
   end
   
   function love.unload()
     music:stop()
     music = nil
-    sound = nil
   end
 
   function love.update(dt)
@@ -36,18 +31,20 @@ examples[2] = function()
     
     love.graphics.setColor(255, 255, 255)
     
-    love.graphics.printf("K to play sound\nF to fade in/out music", 0, 240, 400, "center")
+    love.graphics.printf("left/right to shift key\nlshift + left/right to shift octave\n" .. music:getTargetPitch(), 0, 240, 400, "center")
     
     love.graphics.setBackgroundColor(0, 0, 0)
     
   end
   
   function love.key(key)
-    if key == "k" then
-      sound:play(true) --pitched
-    elseif key == "f" then
-      fade = fade == "in" and "out" or "in"
-      music:fade(fade, fade == "in" and .5)
+    if not (key == "left" or key == "right") then return true end
+    
+    local dir = key == "left" and -1 or key == "right" and 1
+    if love.keyboard.isDown("lshift") then
+      music:setPitch( music:octave(dir), true )
+    else
+      music:setPitch( music:tone(dir), true )
     end
   end
   

@@ -141,10 +141,11 @@ source:setOffset(offset) --set beat offset (milliseconds)
 
 source:setIntensity(intensity)
 
-source:setPitch(pitch)
+--if **force** is specified, target attribute will be reset to value
+source:setPitch(pitch, force)
 //-> source:getPitch()
 
-source:setVolume(volume)
+source:setVolume(volume, force)
 //-> source:getVolume()
 
 source:setLooping(bool)
@@ -164,4 +165,18 @@ Fade in/out
 source:fadeIn()
 source:fadeOut()
 source:fade(str) --"in" or "out"
+```
+
+Get tone-shifted pitch
+```lua
+source:tone(offset)
+
+//-> source:setPitch( source:tone(4) ) --shift source by 4 semitones
+```
+
+Get octave-shifted pitch
+```lua
+source:octave(offset)
+
+//-> source:setPitch( source:octave(-2) ) --shift source by -2 octaves
 ```

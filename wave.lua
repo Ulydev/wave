@@ -5,10 +5,14 @@
 -- The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 -- THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-local wave, waveObject = {}, {}
+local wave, waveObject = {
+  overwrite = false
+}, {}
 setmetatable(wave, wave)
 
 --[[ Private ]]--
+
+local tr2 = 1.0594630943592952645
 
 local playInstance, stopInstance, isPlaying
 
@@ -65,21 +69,24 @@ function waveObject:play(pitched)
 
 	-- overwrite instance:stop() and instance:play()
 	if not (playInstance and stopInstance) then
-		playInstance = getmetatable(instance).play
-		getmetatable(instance).play = error
+		playInstance = getmetatable(instance).play  
 
 		stopInstance = getmetatable(instance).stop
-		getmetatable(instance).stop = function(this)
-			stopInstance(this)
-			self.instances[this] = nil
-		end
     
     isPlaying = getmetatable(instance).isPlaying
-    getmetatable(instance).isPlaying = error
+    
+    if wave.overwrite then
+      getmetatable(instance).play = error
+      getmetatable(instance).stop = function(this)
+        stopInstance(this)
+        self.instances[this] = nil
+      end
+      getmetatable(instance).isPlaying = error
+    end
 	end
 
 	instance:setLooping(self.looping)
-	instance:setPitch(self.pitch+ (pitched and (math.random()-.5)*.1 or 0) )
+	instance:setPitch(self.pitch + (pitched and (math.random()-.5)*.1 or 0) )
 	instance:setVolume(self.volume)
 
 	self.instances[instance] = instance
@@ -212,7 +219,8 @@ for _, property in ipairs{'looping', 'pitch', 'volume'} do
 		return self[property]
 	end
 
-	waveObject['set' .. name] = function(self, val)
+	waveObject['set' .. name] = function(self, val, force)
+    if force then waveObject['setTarget' .. name](self, val) end
 		self[property] = val
 		for s in pairs(self.instances) do
 			s['set' .. name](s, val)
@@ -232,6 +240,18 @@ for _, property in ipairs{'pitch', 'volume'} do
     return self
 	end
 end
+
+function waveObject:tone(offset)
+  
+  local pitch = self:getTargetPitch() or self:getPitch()
+  
+  pitch = pitch * (tr2 ^ offset)
+  
+  return pitch
+  
+end
+
+function waveObject:octave(offset) return self:tone(offset * 12) end
 
 --// Update
 
@@ -261,7 +281,7 @@ function waveObject:updateBeat(dt)
     self.lastTime = _position
     _elapsedBeats = _elapsedBeats + 1
     self.beat = 0
-  elseif _position ~= self.lastTime then --Updates music time, but with easing
+  elseif _position ~= self.lastTime then --updates music time, but with easing
     self.time = (self.time + (_position))/2
     self.lastTime = _position
   end
@@ -300,13 +320,25 @@ function waveObject:updateEnergy(dt)
 end
 
 function waveObject:updateProperties(dt)
-  if self:getTargetPitch() then self:setPitch(lerp(self:getPitch(), self:getTargetPitch(), 2*dt)) end
-  if self:getTargetVolume() then self:setVolume(lerp(self:getVolume(), self:getTargetVolume(), ((self.isFadingOut and self.isFadingOut ~= true) and self.isFadingOut or 2)*dt)) end
+  
+  if self:getTargetPitch() then
+    self:setPitch(lerp(self:getPitch(), self:getTargetPitch(), 2*dt))
+  end
+  
+  if self:getTargetVolume() then
+    self:setVolume(
+      lerp(
+        self:getVolume(),
+        self:getTargetVolume(),
+        ((self.isFadingOut and self.isFadingOut ~= true) and self.isFadingOut or 2)*dt)
+    )
+  end
 
   if self.isFadingOut and self:getVolume() == self:getTargetVolume() then
     self.isFadingOut = nil
     self:pause()
   end
+  
 end
 
 --// Checks
