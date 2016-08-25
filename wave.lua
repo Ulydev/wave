@@ -142,6 +142,11 @@ function waveObject:seek(position, unit)
   for s in pairs(self.instances) do
     s:seek(position, unit)
   end
+  self.time = position * 1000
+  self.lastTime = position * 1000
+  self.previousFrame = love.timer.getTime() * 1000
+  self.beatTime = self:calculateBeat()
+  self.beat = math.floor(self.beatTime)
   return self
 end
 
@@ -176,7 +181,11 @@ function waveObject:getBeat()
 end
 
 function waveObject:getBeatTime()
-  return self.beatTime-self.beat
+  return self.beatTime - self.beat
+end
+
+function waveObject:calculateBeat()
+  return (self.bpm / 60) * ((self.time + (self.offset or 0)) % (self.duration * 1000)) / 1000
 end
 
 --
@@ -189,6 +198,7 @@ function waveObject:fadeIn(target)
     self:play()
   end
   self:setTargetVolume(target or 1)
+  self.isFadingOut = nil
   return self
 end
 
@@ -207,7 +217,7 @@ function waveObject:setIntensity(intensity)
 end
 
 function waveObject:getEnergy()
-  self:isParsed()
+  if not self:isParsed() then return 0 end
   return self.energy
 end
 
@@ -256,8 +266,10 @@ function waveObject:octave(offset) return self:tone(offset * 12) end
 --// Update
 
 function waveObject:update(dt)
-  if self:isMusic() then self:updateBeat(dt) end
-  if self:isParsed() then self:updateEnergy(dt) end
+  if not self:isPaused() then
+    if self:isMusic() then self:updateBeat(dt) end
+    if self:isParsed() then self:updateEnergy(dt) end
+  end
   
   self:updateProperties(dt)
   
@@ -286,7 +298,7 @@ function waveObject:updateBeat(dt)
     self.lastTime = _position
   end
   
-  self.beatTime = (self.bpm / 60) * ((self.time + (self.offset or 0)) % (self.duration * 1000)) / 1000
+  self.beatTime = self:calculateBeat()
   
   local _beat = math.floor(self.beatTime)
   _elapsedBeats = _elapsedBeats + _beat - self.beat
@@ -307,11 +319,11 @@ function waveObject:updateEnergy(dt)
   
   local _sample = _instance:tell( "samples" )
   local size = 1024
-  if _sample-size > 0 then
+  if _sample > size then
     
     local _energy = 0
-    for i = _sample, _sample+size do
-      _energy = _energy + (self.data:getSample(i)^2)/self.intensity
+    for i = _sample, _sample + size do
+      _energy = _energy + (self.data:getSample(i) ^ 2) / self.intensity
     end
     self.energy = lerp(self.energy, _energy, 10*dt)
      

@@ -2,6 +2,8 @@ examples[2] = function()
   
   function love.load()
     
+    love.graphics.setNewFont(42)
+    
     music = audio
       :newSource("music.wav", "stream")
       
@@ -36,7 +38,7 @@ examples[2] = function()
     
     love.graphics.setColor(255, 255, 255)
     
-    love.graphics.printf("K to play sound\nF to fade in/out music", 0, 240, 400, "center")
+    love.graphics.printf("K to play sound\nF to fade in/out music", 24, 240, love.graphics.getWidth(), "left")
     
     love.graphics.setBackgroundColor(0, 0, 0)
     

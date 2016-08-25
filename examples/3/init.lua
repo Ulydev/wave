@@ -31,7 +31,9 @@ examples[3] = function()
     
     love.graphics.setColor(255, 255, 255)
     
-    love.graphics.printf("left/right to shift key\nlshift + left/right to shift octave\n" .. music:getTargetPitch(), 0, 240, 400, "center")
+    local string = "left/right to shift key\nlshift + left/right to shift octave\n\npitch: " .. music:getTargetPitch()
+    
+    love.graphics.printf(string, 24, 240, love.graphics.getWidth(), "left")
     
     love.graphics.setBackgroundColor(0, 0, 0)
     
