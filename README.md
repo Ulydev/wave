@@ -136,6 +136,8 @@ source:parse()
 Set/get source properties
 ```lua
 source:setBPM(bpm)
+--or--
+source:detectBPM() --automatic BPM detection - very experimental
 
 source:setOffset(offset) --set beat offset (milliseconds)
 

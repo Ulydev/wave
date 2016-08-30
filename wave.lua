@@ -6,7 +6,13 @@
 -- THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 local wave, waveObject = {
-  overwrite = false
+  overwrite = false,
+  
+  energyRatio = 1.2, --energy peak detection threshold
+  trainSize = 108, --train size for convolution, blocks of 1024 (430 = 10s)
+  
+  minLength = 2048 --minimum length, in samples, to parse audio
+  
 }, {}
 setmetatable(wave, wave)
 
@@ -96,7 +102,7 @@ function waveObject:play(pitched)
     self.instance = instance
     if self:isMusic() then --start listening to beat
       
-      self.duration = self.instance:getDuration()
+      self.duration = self.duration or self.instance:getDuration()
       self.previousFrame = love.timer.getTime() * 1000
       self.lastTime = 0
       self.time = 0
@@ -153,8 +159,10 @@ end
 --// Configure music
 
 function waveObject:parse()
-  if self.data then return self end
+  assert(not self.data, "Audio is already parsed.")
   self.data = love.sound.newSoundData(self.path)
+  self.length = self.data:getSampleCount()
+  self.duration = self.data:getDuration()
   return self
 end
 
@@ -163,6 +171,7 @@ end
 function waveObject:setBPM(bpm)
   self.bpm = bpm
   self.bps = 60 / bpm
+  self.detector = nil
   return self
 end
 
@@ -263,6 +272,215 @@ end
 
 function waveObject:octave(offset) return self:tone(offset * 12) end
 
+--// Beat detection
+
+function waveObject:detectBPM()
+  assert(self:isParsed(), "Parse audio before enabling beat detection.")
+  
+  local length = self.length
+  local size = math.floor(length/1024)
+  
+  self.detector = {
+    
+    length = length,
+    e1024 = {}, --size
+    e44100 = {}, --size
+    energyPeak = {}, --size + 21
+    
+    size = size
+  }
+  
+  for i=0, size + 21 do
+    self.detector.energyPeak[i] = 0
+  end
+  
+  self:setBPM( self:calculateBPM() ) --heavy stuff
+  
+  return self
+end
+
+function waveObject:calculateEnergy(offset, size, limiter)
+  
+  local _energy = 0
+  for i = offset, offset + size do
+    _energy = _energy + (self.data:getSample(i) ^ 2)/ (limiter or size);
+  end
+  
+  return _energy
+end
+
+function waveObject:normalizeSignal(signal, size, maxValue)
+  local max = 0
+  
+  for i = 0, size do
+    if (math.abs(signal[i]) > max) then
+      max = math.abs(signal[i])
+    end
+  end
+
+  --adjust signal
+  local ratio = maxValue / max
+
+  for i = 0, size do
+    signal[i] = signal[i] * ratio
+  end
+
+  return signal
+end
+
+function waveObject:findMax(signal, position, size)
+  local half = size * .5
+  local max = 0
+  local maxPosition = position
+
+  for i = position-half, position+half do
+
+    if signal[i] > max then
+      max = signal[i]
+      maxPosition = i
+    end
+
+  end
+
+  return maxPosition
+end
+
+function waveObject:calculateBPM()
+
+  local _d = self.detector
+  
+  local _size = _d.size --length/1024
+
+  --calculate instant energy
+
+  for i = 0, _size + 42 do
+    _d.e1024[i] = self:calculateEnergy(1024 * i, 4096) --4096 makes it smoother
+  end
+
+  --calculate average energy for 1 sec
+
+  _d.e44100[0] = 0
+
+  --average of the first 43 first e1024 gives the average e44100
+
+  local sum = 0
+
+  for i = 0, 43 do
+    sum = sum + _d.e1024[i];
+  end
+
+  _d.e44100[0] = sum / 43;
+
+  --fill others
+  
+  for i = 1, _size do
+    sum = sum - _d.e1024[i - 1] + _d.e1024[i + 42] --because 42 is the only answer
+    _d.e44100[i] = sum / 43;
+  end
+
+  --calculate ratio
+
+  for i = 21, _size do
+
+    -- -21 centers e1024 on e44100's second
+
+    if (_d.e1024[i] > wave.energyRatio * _d.e44100[i-21]) then
+      
+      _d.energyPeak[i] = 1
+      
+    end
+
+  end
+
+  --calculate BPM
+
+  --calculate time between every energy peak
+
+  local T = {}
+
+  local iPrevious = 0
+
+  for i = 1, _size do
+
+    if (_d.energyPeak[i] == 1) and (_d.energyPeak[i-1] == 0) then
+
+      local di = i - iPrevious
+
+      if (di > 5) then --interferences
+
+        table.insert(T, di)
+
+        iPrevious = i
+
+      end
+    end
+  end
+
+  --let the statistics begin
+
+  local maxOccT, avgOccT = 0, 0
+
+  --count the frequency of each interval
+
+  local occT = {}; --86 = max 2 blocks of 43 gap (=2s)
+
+  for i = 0, 86 do
+    occT[i] = 0
+  end
+
+  for i = 1, #T do
+    if(T[i] <= 86) then
+      occT[T[i]] = occT[T[i]] + 1
+    end
+  end
+  
+
+  local occMax = 0
+
+  for i = 1, 86 do
+
+    if occT[i] > occMax then
+
+      occMaxT = i
+
+      occMax = occT[i]
+
+    end
+  end
+
+  --average of max + max neighbour for more precision
+
+  local neighbour = occMaxT - 1
+
+  if (occT[occMaxT + 1] > occT[neighbour]) then
+    neighbour = occMaxT + 1
+  end
+
+  local div = occT[occMaxT] + occT[neighbour]
+
+  if div == 0 then
+    avgOccT = 0
+  else
+    avgOccT = (occMaxT * occT[occMaxT] + neighbour * occT[neighbour]) / div
+  end
+
+
+
+  --last step
+
+  local bpm = 60 / (avgOccT * (1024/44100)) --FINALLY WE GOT IT WOOHOO
+  
+  while bpm < 90 or bpm > 180 do --TEST - REMOVE
+    if bpm < 90 then
+      bpm = bpm * 2
+    else
+      bpm = bpm * .5
+    end
+  end
+  
+  return math.floor(bpm + .5)
+end
+
 --// Update
 
 function waveObject:update(dt)
@@ -321,10 +539,7 @@ function waveObject:updateEnergy(dt)
   local size = 1024
   if _sample > size then
     
-    local _energy = 0
-    for i = _sample, _sample + size do
-      _energy = _energy + (self.data:getSample(i) ^ 2) / self.intensity
-    end
+    local _energy = self:calculateEnergy(_sample, size, self.intensity)
     self.energy = lerp(self.energy, _energy, 10*dt)
      
   end
@@ -356,7 +571,7 @@ end
 --// Checks
 
 function waveObject:isMusic() return self.bpm and true or false end
-function waveObject:isParsed() return self.data and true or false end
+function waveObject:isParsed() return (self.data and self.duration > 10) and true or false end
 
 function waveObject:isPaused() return self._paused end
 

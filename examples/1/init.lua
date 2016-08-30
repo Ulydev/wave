@@ -13,7 +13,9 @@ examples[1] = function()
       :parse()
       
       :setIntensity(20)
+      
       :setBPM(120)
+      
       :setOffset(100)
       
       :setPitch(0.1)
