@@ -71,7 +71,7 @@ function waveObject:play(pitched)
   
   self._paused = false
   
-	local instance = love.audio.newSource(self.data or self.path, self.type)
+	local instance = love.audio.newSource(self.data or self.path, self.type or "stream")
 
 	-- overwrite instance:stop() and instance:play()
 	if not (playInstance and stopInstance) then
@@ -470,6 +470,7 @@ function waveObject:calculateBPM()
 
   local bpm = 60 / (avgOccT * (1024/44100)) --FINALLY WE GOT IT WOOHOO
   
+  print(bpm)
   while bpm < 90 or bpm > 180 do --TEST - REMOVE
     if bpm < 90 then
       bpm = bpm * 2
