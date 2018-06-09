@@ -468,10 +468,9 @@ function waveObject:calculateBPM()
 
   --last step
 
-  local bpm = 60 / (avgOccT * (1024/44100)) --FINALLY WE GOT IT WOOHOO
+  local bpm = 60 / (avgOccT * (1024/44100))
   
-  print(bpm)
-  while bpm < 90 or bpm > 180 do --TEST - REMOVE
+  while bpm < 90 or bpm > 180 do --clamp at a reasonable bpm
     if bpm < 90 then
       bpm = bpm * 2
     else
